@@ -134,6 +134,47 @@ func (app *Application) updatePostHandler(w http.ResponseWriter, r *http.Request
 
 }
 
+type CommentPayload struct {
+	Content string `json:"content" validate:"required,max=400"`
+	UserID  int    `json:"user_id" validate:"required"`
+}
+
+func (app *Application) createCommentsHandler(w http.ResponseWriter, r *http.Request) {
+	post := getPostFromCtx(r)
+	ctx := r.Context()
+
+	var payload CommentPayload
+
+	if err := readJson(w, r, &payload); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	if err := validate.Struct(payload); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	comment := &store.Comment{
+		PostID:  post.ID,
+		UserID:  int64(payload.UserID),
+		Content: payload.Content,
+	}
+	if err := app.Store.Comments.Create(ctx, comment); err != nil {
+		switch {
+		case errors.Is(err, store.ErrorNotFound):
+			app.notFoundResponse(w, r, err)
+			return
+		default:
+			app.statusInternalServerError(w, r, err)
+			return
+		}
+	}
+	if err := app.jsonResponse(w, http.StatusCreated, comment); err != nil {
+		app.statusInternalServerError(w, r, err)
+	}
+
+}
+
 func (app *Application) postContextMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		idParam := chi.URLParam(r, "postID")
