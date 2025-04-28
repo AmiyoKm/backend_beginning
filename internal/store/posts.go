@@ -4,14 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	"github.com/lib/pq"
-)
-
-var (
-	ErrorNotFound = errors.New("resource not found")
-	QueryTimeoutDuration = time.Second * 5
 )
 
 type Post struct {
@@ -35,7 +29,7 @@ func (s *PostStore) Create(ctx context.Context, post *Post) error {
 	INSERT INTO  posts (content , title , user_id , tags)
 	VALUES ($1 , $2 , $3 , $4) RETURNING id , created_at , updated_at
 	`
-	ctx , cancel := context.WithTimeout(ctx , QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 	err := s.db.QueryRowContext(ctx, query,
 		post.Content,
@@ -112,7 +106,7 @@ func (s *PostStore) Update(ctx context.Context, post *Post) error {
 		WHERE id = $3 AND version = $4
 		RETURNING version
 	`
-	ctx , cancel := context.WithTimeout(ctx , QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 	err := s.db.QueryRowContext(ctx, query, post.Title, post.Content, post.ID, post.Version).Scan(
 		&post.Version,
