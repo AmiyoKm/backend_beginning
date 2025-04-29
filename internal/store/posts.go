@@ -4,14 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	"github.com/lib/pq"
-)
-
-var (
-	ErrorNotFound = errors.New("resource not found")
-	QueryTimeoutDuration = time.Second * 5
 )
 
 type Post struct {
@@ -24,10 +18,60 @@ type Post struct {
 	UpdatedAt string    `json:"updated_at"`
 	Version   int       `json:"version"`
 	Comments  []Comment `json:"comments"`
+	User      User      `json:"user"`
 }
 
 type PostStore struct {
 	db *sql.DB
+}
+
+type PostWithMetadata struct {
+	Post
+	CommentCount int `json:"comments_count"`
+}
+
+func (s *PostStore) GetUserFeed(ctx context.Context, userID int64) ([]PostWithMetadata, error) {
+	query := `SELECT
+    p.id , p.user_id, p.title , p.content , p.tags , p.created_at , p.version ,
+    u.username,
+    COUNT(c.id ) AS comments_count
+	FROM posts p
+	LEFT JOIN comments c ON p.id = c.post_id
+	LEFT JOIN users u on u.id = p.user_id
+	JOIN followers f ON f.follower_id = p.user_id OR p.user_id = $1
+	WHERE f.user_id = $1 OR p.user_id = $1
+	GROUP BY p.id , u.username
+	ORDER BY p.created_at DESC;`
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+	rows , err := s.db.QueryContext(ctx , query , userID)
+
+	if err!= nil {
+		return nil , err
+	}
+	defer rows.Close()
+
+	var feed []PostWithMetadata
+
+	for rows.Next(){
+		var p PostWithMetadata
+		err := rows.Scan(
+			&p.ID,
+			&p.UserID,
+			&p.Title,
+			&p.Content,
+			pq.Array(&p.Tags),
+			&p.CreateAt,
+			&p.Version ,
+			&p.User.Username,
+			&p.CommentCount,
+		)
+		if err != nil {
+			return nil , err
+		}
+		feed = append(feed, p)
+	}
+	return feed , nil
 }
 
 func (s *PostStore) Create(ctx context.Context, post *Post) error {
@@ -35,7 +79,7 @@ func (s *PostStore) Create(ctx context.Context, post *Post) error {
 	INSERT INTO  posts (content , title , user_id , tags)
 	VALUES ($1 , $2 , $3 , $4) RETURNING id , created_at , updated_at
 	`
-	ctx , cancel := context.WithTimeout(ctx , QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 	err := s.db.QueryRowContext(ctx, query,
 		post.Content,
@@ -112,7 +156,7 @@ func (s *PostStore) Update(ctx context.Context, post *Post) error {
 		WHERE id = $3 AND version = $4
 		RETURNING version
 	`
-	ctx , cancel := context.WithTimeout(ctx , QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 	err := s.db.QueryRowContext(ctx, query, post.Title, post.Content, post.ID, post.Version).Scan(
 		&post.Version,
