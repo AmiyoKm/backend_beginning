@@ -14,7 +14,7 @@ type Post struct {
 	Title     string    `json:"title"`
 	UserID    int64     `json:"user_id"`
 	Tags      []string  `json:"tags"`
-	CreateAt  string    `json:"created_at"`
+	CreatedAt string    `json:"created_at"`
 	UpdatedAt string    `json:"updated_at"`
 	Version   int       `json:"version"`
 	Comments  []Comment `json:"comments"`
@@ -27,51 +27,60 @@ type PostStore struct {
 
 type PostWithMetadata struct {
 	Post
-	CommentCount int `json:"comments_count"`
+	CommentsCount int `json:"comments_count"`
 }
 
-func (s *PostStore) GetUserFeed(ctx context.Context, userID int64) ([]PostWithMetadata, error) {
-	query := `SELECT
-    p.id , p.user_id, p.title , p.content , p.tags , p.created_at , p.version ,
-    u.username,
-    COUNT(c.id ) AS comments_count
-	FROM posts p
-	LEFT JOIN comments c ON p.id = c.post_id
-	LEFT JOIN users u on u.id = p.user_id
-	JOIN followers f ON f.follower_id = p.user_id OR p.user_id = $1
-	WHERE f.user_id = $1 OR p.user_id = $1
-	GROUP BY p.id , u.username
-	ORDER BY p.created_at DESC;`
+func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, fq PaginatedFeedQuery) ([]PostWithMetadata, error) {
+	query := `
+		SELECT
+			p.id, p.user_id, p.title, p.content, p.created_at, p.version, p.tags,
+			u.username,
+			COUNT(c.id) AS comments_count
+		FROM posts p
+		LEFT JOIN comments c ON c.post_id = p.id
+		LEFT JOIN users u ON p.user_id = u.id
+		JOIN followers f ON f.follower_id = p.user_id OR p.user_id = $1
+		WHERE
+			f.user_id = $1 AND
+			(p.title ILIKE '%' || $4 || '%' OR p.content ILIKE '%' || $4 || '%') AND
+			(p.tags @> $5 OR $5 = '{}')
+		GROUP BY p.id, u.username
+		ORDER BY p.created_at ` + fq.Sort + `
+		LIMIT $2 OFFSET $3
+	`
+
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
-	rows , err := s.db.QueryContext(ctx , query , userID)
 
-	if err!= nil {
-		return nil , err
+	rows, err := s.db.QueryContext(ctx, query, userID, fq.Limit, fq.Offset, fq.Search, pq.Array(fq.Tags))
+	if err != nil {
+		return nil, err
 	}
+
 	defer rows.Close()
 
 	var feed []PostWithMetadata
-
-	for rows.Next(){
+	for rows.Next() {
 		var p PostWithMetadata
 		err := rows.Scan(
 			&p.ID,
 			&p.UserID,
 			&p.Title,
 			&p.Content,
+			&p.CreatedAt,
+			&p.Version,
 			pq.Array(&p.Tags),
-			&p.CreateAt,
-			&p.Version ,
 			&p.User.Username,
-			&p.CommentCount,
+			&p.CommentsCount,
 		)
 		if err != nil {
-			return nil , err
+			return nil, err
 		}
+
 		feed = append(feed, p)
 	}
-	return feed , nil
+
+	return feed, nil
 }
 
 func (s *PostStore) Create(ctx context.Context, post *Post) error {
@@ -88,7 +97,7 @@ func (s *PostStore) Create(ctx context.Context, post *Post) error {
 		pq.Array(post.Tags),
 	).Scan(
 		&post.ID,
-		&post.CreateAt,
+		&post.CreatedAt,
 		&post.UpdatedAt,
 	)
 	if err != nil {
@@ -109,7 +118,7 @@ func (s *PostStore) GetByID(ctx context.Context, postID int64) (*Post, error) {
 		&post.UserID,
 		&post.Title,
 		&post.Content,
-		&post.CreateAt,
+		&post.CreatedAt,
 		&post.UpdatedAt,
 		pq.Array(&post.Tags),
 		&post.Version,
