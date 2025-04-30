@@ -1,12 +1,12 @@
 package main
 
 import (
-	"log"
 
 	"github.com/AmiyoKm/go-backend/internal/db"
 	"github.com/AmiyoKm/go-backend/internal/env"
 	"github.com/AmiyoKm/go-backend/internal/store"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 const version string = "0.0.1"
@@ -22,41 +22,46 @@ const version string = "0.0.1"
 //	@license.name	Apache 2.0
 //	@license.url	http://www.apache.org/licenses/LICENSE-2.0.html
 
-//	@BasePath					/v1
+// @BasePath					/v1
 //
-//	@securityDefinitions.apikey	ApiKeyAuth
-//	@in							header
-//	@name						Authorization
-//	@description
+// @securityDefinitions.apikey	ApiKeyAuth
+// @in							header
+// @name						Authorization
+// @description
 func main() {
+	//Logger
+	logger := zap.Must(zap.NewProduction()).Sugar()
+	defer logger.Sync()
 	if err := godotenv.Load(); err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	cfg := Config{
-		Addr: env.GetString("ADDR", ":8080"),
-		DB:   DBConfig,
-		Env:  env.GetString("ENVIRONMENT", "DEVELOPMENT"),
-		ApiURL: env.GetString("EXTERNAL_URL" , "localhost:8080"),
+		Addr:   env.GetString("ADDR", ":8080"),
+		DB:     DBConfig,
+		Env:    env.GetString("ENVIRONMENT", "DEVELOPMENT"),
+		ApiURL: env.GetString("EXTERNAL_URL", "localhost:8080"),
 	}
 
+	//Database
 	db, err := db.New(cfg.DB.Addr, cfg.DB.maxOpenConns, cfg.DB.maxIdleConns, cfg.DB.maxIdleTime)
 	if err != nil {
-		log.Panic(err)
+		logger.Fatal(err)
 	}
 
 	defer db.Close()
 
-	log.Println("DB connection pool established")
+	logger.Info("DB connection pool established")
 
 	store := store.NewStorage(db)
 
 	app := &Application{
 		Config: cfg,
 		Store:  store,
+		Logger: logger,
 	}
 
 	mux := app.mount()
-	log.Fatal(app.Run(mux))
+	logger.Fatal(app.Run(mux))
 
 }

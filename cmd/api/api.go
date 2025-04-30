@@ -2,20 +2,21 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
+	"github.com/AmiyoKm/go-backend/docs" // This is required to generate swagger docs
 	"github.com/AmiyoKm/go-backend/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
-	"github.com/AmiyoKm/go-backend/docs"  // This is required to generate swagger docs
+	"go.uber.org/zap"
 )
 
 type Application struct {
 	Config Config
 	Store  store.Storage
+	Logger *zap.SugaredLogger
 }
 
 type Config struct {
@@ -89,6 +90,6 @@ func (app *Application) Run(mux http.Handler) error {
 		WriteTimeout: time.Second * 30,
 		IdleTimeout:  time.Minute,
 	}
-	log.Printf("Server has started at http://localhost%s", app.Config.Addr)
+	app.Logger.Infow("server has started" , "addr" , app.Config.Addr , "env" , app.Config.Env)
 	return srv.ListenAndServe()
 }

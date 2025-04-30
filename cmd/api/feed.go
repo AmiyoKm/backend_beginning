@@ -48,11 +48,11 @@ func (app *Application) getUserFeedHandler(w http.ResponseWriter, r *http.Reques
 
 	feed, err := app.Store.Posts.GetUserFeed(ctx,int64(100), fq)
 	if err != nil {
-		app.statusInternalServerError(w, r, err)
+		app.internalServerErrorResponse(w, r, err)
 		return
 	}
 
 	if err := app.jsonResponse(w, http.StatusOK, feed); err != nil {
-		app.statusInternalServerError(w, r, err)
+		app.internalServerErrorResponse(w, r, err)
 	}
 }

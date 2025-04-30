@@ -32,7 +32,7 @@ func (app *Application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	user := getUserFromContext(r)
 	if err := app.jsonResponse(w, http.StatusOK, user); err != nil {
-		app.statusInternalServerError(w, r, err)
+		app.internalServerErrorResponse(w, r, err)
 	}
 }
 
@@ -83,7 +83,7 @@ func (app *Application) followUserHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := app.jsonResponse(w, http.StatusOK, nil); err != nil {
-		app.statusInternalServerError(w, r, err)
+		app.internalServerErrorResponse(w, r, err)
 		return
 	}
 }
@@ -123,7 +123,7 @@ func (app *Application) unfollowUserHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := app.jsonResponse(w, http.StatusOK, nil); err != nil {
-		app.statusInternalServerError(w, r, err)
+		app.internalServerErrorResponse(w, r, err)
 		return
 	}
 
@@ -134,7 +134,7 @@ func (app *Application) userContextMiddleware(next http.Handler) http.Handler {
 		idParam := chi.URLParam(r, "userID")
 		id, err := strconv.ParseInt(idParam, 10, 64)
 		if err != nil {
-			app.statusInternalServerError(w, r, err)
+			app.internalServerErrorResponse(w, r, err)
 			return
 		}
 		ctx := r.Context()
@@ -145,7 +145,7 @@ func (app *Application) userContextMiddleware(next http.Handler) http.Handler {
 			case errors.Is(err, store.ErrorNotFound):
 				app.notFoundResponse(w, r, err)
 			default:
-				app.statusInternalServerError(w, r, err)
+				app.internalServerErrorResponse(w, r, err)
 			}
 			return
 		}
