@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -8,6 +9,8 @@ import (
 	"github.com/AmiyoKm/go-backend/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
+	"github.com/AmiyoKm/go-backend/docs"  // This is required to generate swagger docs
 )
 
 type Application struct {
@@ -19,6 +22,7 @@ type Config struct {
 	Addr string
 	DB   dbConfig
 	Env  string
+	ApiURL string
 }
 
 type dbConfig struct {
@@ -40,32 +44,34 @@ func (app *Application) mount() http.Handler {
 
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", app.healthCheckHandler)
+		docsURL := fmt.Sprintf("%s/swagger/doc.json", app.Config.Addr)
+		r.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL(docsURL)))
 
 		r.Route("/posts", func(r chi.Router) {
 			r.Post("/", app.createPostHandler)
 			r.Route("/{postID}", func(r chi.Router) {
 				r.Use(app.postContextMiddleware)
 
-				r.Get("/" , app.getPostHandler)
-				r.Delete("/" , app.deletePostHandler)
-				r.Patch("/" , app.updatePostHandler)
+				r.Get("/", app.getPostHandler)
+				r.Delete("/", app.deletePostHandler)
+				r.Patch("/", app.updatePostHandler)
 
-				r.Route("/comments" ,func(r chi.Router) {
-					r.Post("/" , app.createCommentsHandler)
+				r.Route("/comments", func(r chi.Router) {
+					r.Post("/", app.createCommentsHandler)
 				})
 			})
 		})
-		r.Route("/user", func (r chi.Router) {
-			r.Route("/{userID}" , func(r chi.Router) {
+		r.Route("/users", func(r chi.Router) {
+			r.Route("/{userID}", func(r chi.Router) {
 				r.Use(app.userContextMiddleware)
 
-				r.Get("/" , app.getUserHandler)
+				r.Get("/", app.getUserHandler)
 
-				r.Put("/follow" , app.followUserHandler)
-				r.Put("/unfollow" , app.unfollowUserHandler)
+				r.Put("/follow", app.followUserHandler)
+				r.Put("/unfollow", app.unfollowUserHandler)
 			})
 			r.Group(func(r chi.Router) {
-				r.Get("/feed" , app.getUserFeedHandler)
+				r.Get("/feed", app.getUserFeedHandler)
 			})
 		})
 	})
@@ -73,7 +79,9 @@ func (app *Application) mount() http.Handler {
 }
 
 func (app *Application) Run(mux http.Handler) error {
-
+	docs.SwaggerInfo.Version = version
+	docs.SwaggerInfo.Host = app.Config.ApiURL
+	docs.SwaggerInfo.BasePath = "/v1"
 	srv := &http.Server{
 		Addr:         app.Config.Addr,
 		Handler:      mux,
