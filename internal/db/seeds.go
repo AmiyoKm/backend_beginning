@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"math/rand"
@@ -580,16 +581,22 @@ var tags = []string{
 	"Review", "Comparison", "Opinion", "Discussion", "News", "Update",
 }
 
-func Seed(store store.Storage) {
+func Seed(store store.Storage , db *sql.DB) {
 	ctx := context.Background()
 
 	users := generateUsers(100)
-	// for _, user := range users {
-	// 	if err := store.Users.Create(ctx, user); err != nil {
-	// 		log.Println("Error creating users:", err)
-	// 		return
-	// 	}
-	// }
+	tx , err := db.BeginTx(ctx , nil)
+	if err != nil {
+		return
+	}
+	for _, user := range users {
+		if err := store.Users.Create(ctx,tx ,user); err != nil {
+			tx.Rollback()
+			log.Println("Error creating users:", err)
+			return
+		}
+	}
+	tx.Commit()
 
 	posts := generatePosts(200, users)
 
