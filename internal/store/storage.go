@@ -27,6 +27,7 @@ type Storage struct {
 		GetByID(context.Context, int64) (*User, error)
 		Create(context.Context, *sql.Tx, *User) error
 		CreateAndInvite(ctx context.Context, user *User, token string, invitationExp time.Duration) error
+		Activate(context.Context ,  string) error
 	}
 	Followers interface {
 		Follow(ctx context.Context, followerID int64, userID int64) error

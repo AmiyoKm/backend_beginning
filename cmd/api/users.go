@@ -13,6 +13,36 @@ import (
 type userKey string
 
 const userCtx userKey = "user"
+// ActivateUser godoc
+//
+//	@Summary		Activates/Register a user
+//	@Description	Activates/Register a user by invitation token
+//	@Tags			users
+//	@Produce		json
+//	@Param			token	path		string	true	"Invitation token"
+//	@Success		204		{string}	string	"User activated"
+//	@Failure		404		{object}	error
+//	@Failure		500		{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/users/activate/{token} [put]
+func (app *Application) activateUserHandler(w http.ResponseWriter, r *http.Request) {
+	token := chi.URLParam(r, "token")
+
+	err := app.Store.Users.Activate(r.Context(), token)
+	if err != nil {
+		switch err {
+		case store.ErrorNotFound:
+			app.notFoundResponse(w, r, err)
+			return
+		default:
+			app.internalServerErrorResponse(w, r, err)
+			return
+		}
+	}
+	if err := app.jsonResponse(w,http.StatusNoContent , "") ; err != nil {
+		app.internalServerErrorResponse(w,r,err)
+	}
+}
 
 // GetUser godoc
 //
@@ -87,6 +117,7 @@ func (app *Application) followUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 }
+
 // UnfollowUser gdoc
 //
 //	@Summary		Unfollow a user
