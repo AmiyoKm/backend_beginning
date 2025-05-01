@@ -1,6 +1,7 @@
 package main
 
 import (
+	"time"
 
 	"github.com/AmiyoKm/go-backend/internal/db"
 	"github.com/AmiyoKm/go-backend/internal/env"
@@ -30,6 +31,9 @@ const version string = "0.0.1"
 // @description
 func main() {
 	//Logger
+	mailCgf := mailConfig{
+		exp: time.Hour * 24 * 3,
+	}
 	logger := zap.Must(zap.NewProduction()).Sugar()
 	defer logger.Sync()
 	if err := godotenv.Load(); err != nil {
@@ -41,6 +45,7 @@ func main() {
 		DB:     DBConfig,
 		Env:    env.GetString("ENVIRONMENT", "DEVELOPMENT"),
 		ApiURL: env.GetString("EXTERNAL_URL", "localhost:8080"),
+		Mail: mailCgf,
 	}
 
 	//Database
