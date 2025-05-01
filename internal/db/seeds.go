@@ -584,13 +584,12 @@ func Seed(store store.Storage) {
 	ctx := context.Background()
 
 	users := generateUsers(100)
-
-	for _, user := range users {
-		if err := store.Users.Create(ctx, user); err != nil {
-			log.Println("Error creating users:", err)
-			return
-		}
-	}
+	// for _, user := range users {
+	// 	if err := store.Users.Create(ctx, user); err != nil {
+	// 		log.Println("Error creating users:", err)
+	// 		return
+	// 	}
+	// }
 
 	posts := generatePosts(200, users)
 
@@ -614,11 +613,16 @@ func Seed(store store.Storage) {
 }
 func generateUsers(num int) []*store.User {
 	users := make([]*store.User, num)
-	for i := range num {
+	passwordText := "1234"
+	pass := store.Password{
+        Text: &passwordText,
+        Hash: []byte{},
+    }
+	for i := 0; i < num; i++ {
 		users[i] = &store.User{
-			Username: userNames[i%len(userNames)] + fmt.Sprintf("%d", rand.Intn(1000)),
-			Email:    userNames[i%len(userNames)] + fmt.Sprintf("%d", rand.Intn(1000)) + "@example.com",
-			Password: "12345",
+			Username: userNames[i%len(userNames)] + fmt.Sprintf("%d", rand.Intn(5000)),
+			Email:    userNames[i%len(userNames)] + fmt.Sprintf("%d", rand.Intn(5000)) + "@example.com",
+			Password: pass,
 		}
 	}
 	return users
@@ -627,7 +631,7 @@ func generateUsers(num int) []*store.User {
 func generatePosts(num int, users []*store.User) []*store.Post {
 	posts := make([]*store.Post, num)
 
-	for i := range num {
+	for i := 0; i < num; i++ {
 		user := users[rand.Intn(len(users))]
 
 		posts[i] = &store.Post{
@@ -648,7 +652,7 @@ func generatePosts(num int, users []*store.User) []*store.Post {
 func generateComments(num int, users []*store.User, posts []*store.Post) []*store.Comment {
 	cmt := make([]*store.Comment, num)
 
-	for i := range num {
+	for i := 0; i < num; i++ {
 		cmt[i] = &store.Comment{
 			PostID:  posts[rand.Intn(len(posts))].ID,
 			UserID:  users[rand.Intn(len(users))].ID,

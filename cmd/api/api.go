@@ -20,10 +20,15 @@ type Application struct {
 }
 
 type Config struct {
-	Addr string
-	DB   dbConfig
-	Env  string
+	Addr   string
+	DB     dbConfig
+	Env    string
 	ApiURL string
+	Mail   mailConfig
+}
+
+type mailConfig struct {
+	exp time.Duration
 }
 
 type dbConfig struct {
@@ -75,6 +80,9 @@ func (app *Application) mount() http.Handler {
 				r.Get("/feed", app.getUserFeedHandler)
 			})
 		})
+		r.Route("/authentication", func(r chi.Router) {
+			r.Post("/user", app.registerUserHandler)
+		})
 	})
 	return r
 }
@@ -90,6 +98,6 @@ func (app *Application) Run(mux http.Handler) error {
 		WriteTimeout: time.Second * 30,
 		IdleTimeout:  time.Minute,
 	}
-	app.Logger.Infow("server has started" , "addr" , app.Config.Addr , "env" , app.Config.Env)
+	app.Logger.Infow("server has started", "addr", app.Config.Addr, "env", app.Config.Env)
 	return srv.ListenAndServe()
 }
