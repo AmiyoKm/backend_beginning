@@ -5,6 +5,7 @@ import (
 
 	"github.com/AmiyoKm/go-backend/internal/db"
 	"github.com/AmiyoKm/go-backend/internal/env"
+	"github.com/AmiyoKm/go-backend/internal/mailer"
 	"github.com/AmiyoKm/go-backend/internal/store"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -31,21 +32,26 @@ const version string = "0.0.1"
 // @description
 func main() {
 	//Logger
-	mailCgf := mailConfig{
-		exp: time.Hour * 24 * 3,
-	}
 	logger := zap.Must(zap.NewProduction()).Sugar()
 	defer logger.Sync()
 	if err := godotenv.Load(); err != nil {
 		logger.Fatal(err)
 	}
+	mailCgf := mailConfig{
+		exp:       time.Hour * 24 * 3,
+		fromEmail: env.GetString("FROM_EMAIL", "demomailtrap.com"),
+		mailTrap: mailTrapConfig{
+			apiKey: env.GetString("MAILTRAP_API_KEY", "fa17472ff57682f84f31cae401fd8556"),
+		},
+	}
 
 	cfg := Config{
-		Addr:   env.GetString("ADDR", ":8080"),
-		DB:     DBConfig,
-		Env:    env.GetString("ENVIRONMENT", "DEVELOPMENT"),
-		ApiURL: env.GetString("EXTERNAL_URL", "localhost:8080"),
-		Mail: mailCgf,
+		Addr:        env.GetString("ADDR", ":8080"),
+		DB:          DBConfig,
+		Env:         env.GetString("ENVIRONMENT", "DEVELOPMENT"),
+		ApiURL:      env.GetString("EXTERNAL_URL", "localhost:8080"),
+		FrontendURL: env.GetString("FRONTEND_URL", " "),
+		Mail:        mailCgf,
 	}
 
 	//Database
@@ -60,10 +66,21 @@ func main() {
 
 	store := store.NewStorage(db)
 
+	// mailer := mailer.NewSendgrid(cfg.mail.sendGrid.apiKey, cfg.mail.fromEmail)
+	mailtrap, err := mailer.NewMailTrapClient(cfg.Mail.mailTrap.apiKey, cfg.Mail.fromEmail)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	if err != nil {
+		logger.Fatal(err)
+	}
+
 	app := &Application{
 		Config: cfg,
 		Store:  store,
 		Logger: logger,
+		Mailer: mailtrap,
 	}
 
 	mux := app.mount()

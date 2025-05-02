@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/AmiyoKm/go-backend/docs" // This is required to generate swagger docs
+	"github.com/AmiyoKm/go-backend/internal/mailer"
 	"github.com/AmiyoKm/go-backend/internal/store"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/chi/v5/middleware"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"go.uber.org/zap"
@@ -17,20 +19,26 @@ type Application struct {
 	Config Config
 	Store  store.Storage
 	Logger *zap.SugaredLogger
+	Mailer mailer.Client
 }
 
 type Config struct {
-	Addr   string
-	DB     dbConfig
-	Env    string
-	ApiURL string
-	Mail   mailConfig
+	Addr        string
+	DB          dbConfig
+	Env         string
+	ApiURL      string
+	Mail        mailConfig
+	FrontendURL string
 }
 
 type mailConfig struct {
-	exp time.Duration
+	mailTrap  mailTrapConfig
+	fromEmail string
+	exp       time.Duration
 }
-
+type mailTrapConfig struct {
+	apiKey string
+}
 type dbConfig struct {
 	Addr         string
 	maxOpenConns int
@@ -40,6 +48,18 @@ type dbConfig struct {
 
 func (app *Application) mount() http.Handler {
 	r := chi.NewRouter()
+
+
+	r.Use(cors.Handler(cors.Options{
+		// AllowedOrigins:   []string{"https://foo.com"}, // Use this to allow specific origin hosts
+		AllowedOrigins:   []string{"https://*", "http://*"},
+		// AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	}))
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -68,7 +88,7 @@ func (app *Application) mount() http.Handler {
 			})
 		})
 		r.Route("/users", func(r chi.Router) {
-			r.Put("/activate/{token}" , app.activateUserHandler )
+			r.Put("/activate/{token}", app.activateUserHandler)
 			r.Route("/{userID}", func(r chi.Router) {
 				r.Use(app.userContextMiddleware)
 
