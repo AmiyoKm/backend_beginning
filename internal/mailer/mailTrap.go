@@ -51,7 +51,7 @@ package mailer
 
  	message.AddAlternative("text/html", body.String())
 
- 	dialer := gomail.NewDialer("live.smtp.mailtrap.io", 587, "api", m.apiKey)
+ 	dialer := gomail.NewDialer("smtp.gmail.com", 587, m.fromEmail, m.apiKey)
 
  	if err := dialer.DialAndSend(message); err != nil {
  		return -1, err

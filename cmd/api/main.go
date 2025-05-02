@@ -39,9 +39,9 @@ func main() {
 	}
 	mailCgf := mailConfig{
 		exp:       time.Hour * 24 * 3,
-		fromEmail: env.GetString("FROM_EMAIL", "demomailtrap.com"),
+		fromEmail: env.GetString("FROM_EMAIL", ""),
 		mailTrap: mailTrapConfig{
-			apiKey: env.GetString("MAILTRAP_API_KEY", "fa17472ff57682f84f31cae401fd8556"),
+			apiKey: env.GetString("APP_PASSWORD", ""),
 		},
 	}
 
