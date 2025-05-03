@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/AmiyoKm/go-backend/internal/auth"
 	"github.com/AmiyoKm/go-backend/internal/db"
 	"github.com/AmiyoKm/go-backend/internal/env"
 	"github.com/AmiyoKm/go-backend/internal/mailer"
@@ -52,6 +53,17 @@ func main() {
 		ApiURL:      env.GetString("EXTERNAL_URL", "localhost:8080"),
 		FrontendURL: env.GetString("FRONTEND_URL", " "),
 		Mail:        mailCgf,
+		Auth: authConfig{
+			basic: basicConfig{
+				user: env.GetString("AUTH_BASIC_USER", "admin"),
+				pass: env.GetString("AUTH_BASIC_PASS", "admin"),
+			},
+			token: tokenConfig{
+				secret: env.GetString("AUTH_TOKEN_SECRET", "example"),
+				exp:    time.Hour * 24 * 3,
+				iss:    "SocialLink",
+			},
+		},
 	}
 
 	//Database
@@ -76,11 +88,14 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	jwtAuthenticator := auth.NewJWTAuthenticator(cfg.Auth.token.secret, cfg.Auth.token.iss, cfg.Auth.token.iss)
+
 	app := &Application{
-		Config: cfg,
-		Store:  store,
-		Logger: logger,
-		Mailer: mailtrap,
+		Config:        cfg,
+		Store:         store,
+		Logger:        logger,
+		Mailer:        mailtrap,
+		Authenticator: jwtAuthenticator,
 	}
 
 	mux := app.mount()

@@ -5,6 +5,7 @@ import (
 
 	"github.com/AmiyoKm/go-backend/internal/store"
 )
+
 // getUserFeedHandler godoc
 //
 //	@Summary		Fetches the user feed
@@ -43,10 +44,10 @@ func (app *Application) getUserFeedHandler(w http.ResponseWriter, r *http.Reques
 		app.badRequestResponse(w, r, err)
 		return
 	}
-
 	ctx := r.Context()
-
-	feed, err := app.Store.Posts.GetUserFeed(ctx,int64(100), fq)
+	user := getUserFromContext(r)
+	app.Logger.Info(user, "@@USER")
+	feed, err := app.Store.Posts.GetUserFeed(ctx, user.ID, fq)
 	if err != nil {
 		app.internalServerErrorResponse(w, r, err)
 		return

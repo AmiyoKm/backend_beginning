@@ -581,16 +581,16 @@ var tags = []string{
 	"Review", "Comparison", "Opinion", "Discussion", "News", "Update",
 }
 
-func Seed(store store.Storage , db *sql.DB) {
+func Seed(store store.Storage, db *sql.DB) {
 	ctx := context.Background()
 
 	users := generateUsers(100)
-	tx , err := db.BeginTx(ctx , nil)
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return
 	}
 	for _, user := range users {
-		if err := store.Users.Create(ctx,tx ,user); err != nil {
+		if err := store.Users.Create(ctx, tx, user); err != nil {
 			tx.Rollback()
 			log.Println("Error creating users:", err)
 			return
@@ -622,14 +622,17 @@ func generateUsers(num int) []*store.User {
 	users := make([]*store.User, num)
 	passwordText := "1234"
 	pass := store.Password{
-        Text: &passwordText,
-        Hash: []byte{},
-    }
+		Text: &passwordText,
+		Hash: []byte{},
+	}
 	for i := 0; i < num; i++ {
 		users[i] = &store.User{
 			Username: userNames[i%len(userNames)] + fmt.Sprintf("%d", rand.Intn(5000)),
 			Email:    userNames[i%len(userNames)] + fmt.Sprintf("%d", rand.Intn(5000)) + "@example.com",
 			Password: pass,
+			Role: store.Role{
+				Name: "user",
+			},
 		}
 	}
 	return users

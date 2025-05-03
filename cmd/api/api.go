@@ -6,24 +6,40 @@ import (
 	"time"
 
 	"github.com/AmiyoKm/go-backend/docs" // This is required to generate swagger docs
+	"github.com/AmiyoKm/go-backend/internal/auth"
 	"github.com/AmiyoKm/go-backend/internal/mailer"
 	"github.com/AmiyoKm/go-backend/internal/store"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/cors"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"go.uber.org/zap"
 )
 
 type Application struct {
-	Config Config
-	Store  store.Storage
-	Logger *zap.SugaredLogger
-	Mailer mailer.Client
+	Config        Config
+	Store         store.Storage
+	Logger        *zap.SugaredLogger
+	Mailer        mailer.Client
+	Authenticator auth.Authenticator
 }
 
+type authConfig struct {
+	basic basicConfig
+	token tokenConfig
+}
+type tokenConfig struct {
+	secret string
+	exp    time.Duration
+	iss    string
+}
+type basicConfig struct {
+	user string
+	pass string
+}
 type Config struct {
 	Addr        string
+	Auth        authConfig
 	DB          dbConfig
 	Env         string
 	ApiURL      string
@@ -49,10 +65,9 @@ type dbConfig struct {
 func (app *Application) mount() http.Handler {
 	r := chi.NewRouter()
 
-
 	r.Use(cors.Handler(cors.Options{
 		// AllowedOrigins:   []string{"https://foo.com"}, // Use this to allow specific origin hosts
-		AllowedOrigins:   []string{"https://*", "http://*"},
+		AllowedOrigins: []string{"https://*", "http://*"},
 		// AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
@@ -69,28 +84,33 @@ func (app *Application) mount() http.Handler {
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	r.Route("/v1", func(r chi.Router) {
-		r.Get("/health", app.healthCheckHandler)
+		r.With(app.BasicAuthMiddleware()).Get("/health", app.healthCheckHandler)
 		docsURL := fmt.Sprintf("%s/swagger/doc.json", app.Config.Addr)
 		r.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL(docsURL)))
 
 		r.Route("/posts", func(r chi.Router) {
+
+			r.Use(app.AuthTokenMiddleware)
 			r.Post("/", app.createPostHandler)
+
 			r.Route("/{postID}", func(r chi.Router) {
 				r.Use(app.postContextMiddleware)
-
 				r.Get("/", app.getPostHandler)
-				r.Delete("/", app.deletePostHandler)
-				r.Patch("/", app.updatePostHandler)
+
+				r.Delete("/", app.checkPostOwnership("admin" , app.deletePostHandler))
+				r.Patch("/", app.checkPostOwnership("moderator" , app.updatePostHandler))
 
 				r.Route("/comments", func(r chi.Router) {
 					r.Post("/", app.createCommentsHandler)
 				})
 			})
 		})
+		
 		r.Route("/users", func(r chi.Router) {
 			r.Put("/activate/{token}", app.activateUserHandler)
+
 			r.Route("/{userID}", func(r chi.Router) {
-				r.Use(app.userContextMiddleware)
+				r.Use(app.AuthTokenMiddleware)
 
 				r.Get("/", app.getUserHandler)
 
@@ -98,11 +118,13 @@ func (app *Application) mount() http.Handler {
 				r.Put("/unfollow", app.unfollowUserHandler)
 			})
 			r.Group(func(r chi.Router) {
+				r.Use(app.AuthTokenMiddleware)
 				r.Get("/feed", app.getUserFeedHandler)
 			})
 		})
 		r.Route("/authentication", func(r chi.Router) {
 			r.Post("/user", app.registerUserHandler)
+			r.Post("/token", app.createTokenHandler)
 		})
 	})
 	return r

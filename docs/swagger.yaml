@@ -27,6 +27,19 @@ definitions:
     - content
     - title
     type: object
+  main.CreateUserTokenPayload:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      password:
+        maxLength: 72
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    type: object
   main.RegisterUserPayload:
     properties:
       email:
@@ -131,6 +144,17 @@ definitions:
       version:
         type: integer
     type: object
+  store.Role:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      level:
+        type: integer
+      name:
+        type: string
+    type: object
   store.User:
     properties:
       created_at:
@@ -141,6 +165,10 @@ definitions:
         type: integer
       is_active:
         type: boolean
+      role:
+        $ref: '#/definitions/store.Role'
+      role_id:
+        type: integer
       user_name:
         type: string
     type: object
@@ -156,11 +184,42 @@ info:
   termsOfService: http://swagger.io/terms/
   title: SocialLink API
 paths:
+  /authentication/token:
+    post:
+      consumes:
+      - application/json
+      description: Creates a token for a user
+      parameters:
+      - description: User credentials
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreateUserTokenPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Creates a token
+      tags:
+      - authentication
   /authentication/user:
     post:
       consumes:
       - application/json
-      description: Register a user
+      description: Registers a user
       parameters:
       - description: User credentials
         in: body
@@ -178,15 +237,10 @@ paths:
         "400":
           description: Bad Request
           schema: {}
-        "401":
-          description: Unauthorized
-          schema: {}
         "500":
           description: Internal Server Error
           schema: {}
-      security:
-      - ApiKeyAuth: []
-      summary: Register a user
+      summary: Registers a user
       tags:
       - authentication
   /health:
@@ -377,7 +431,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: Fetch a user by ID
+      description: Fetches a user profile by ID
       parameters:
       - description: User ID
         in: path
@@ -409,7 +463,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: Follow a user by ID
+      description: Follows a user by ID
       parameters:
       - description: User ID
         in: path
