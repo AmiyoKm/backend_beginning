@@ -13,6 +13,7 @@ import (
 type userKey string
 
 const userCtx userKey = "user"
+
 // ActivateUser godoc
 //
 //	@Summary		Activates/Register a user
@@ -39,15 +40,15 @@ func (app *Application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	if err := app.jsonResponse(w,http.StatusNoContent , "") ; err != nil {
-		app.internalServerErrorResponse(w,r,err)
+	if err := app.jsonResponse(w, http.StatusNoContent, ""); err != nil {
+		app.internalServerErrorResponse(w, r, err)
 	}
 }
 
 // GetUser godoc
 //
 //	@Summary		Fetches a user profile
-//	@Description	Fetch a user by ID
+//	@Description	Fetches a user profile by ID
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
@@ -73,12 +74,12 @@ type FollowUser struct {
 // FollowUser godoc
 //
 //	@Summary		Follows a user
-//	@Description	Follow a user by ID
+//	@Description	Follows a user by ID
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
 //	@Param			userID	path		int		true	"User ID"
-//	@Success		204		{object}	string	"User followed"
+//	@Success		204		{string}	string	"User followed"
 //	@Failure		400		{object}	error	"User payload missing"
 //	@Failure		404		{object}	error	"User not found"
 //	@Security		ApiKeyAuth
@@ -86,22 +87,16 @@ type FollowUser struct {
 func (app *Application) followUserHandler(w http.ResponseWriter, r *http.Request) {
 	follower := getUserFromContext(r)
 
-	//TODO: revert back to auth userID from ctx
-	var payload FollowUser
+	followedID, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
 
-	if err := readJson(w, r, &payload); err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
-	if err := validate.Struct(payload); err != nil {
-		app.badRequestResponse(w, r, err)
+	if err != nil {
+		app.badRequestResponse(w,r,err)
 		return
 	}
 
 	ctx := r.Context()
 
-	if err := app.Store.Followers.Follow(ctx, follower.ID, payload.UserID); err != nil {
+	if err := app.Store.Followers.Follow(ctx, follower.ID, followedID); err != nil {
 		switch {
 		case errors.Is(err, store.ErrConflict):
 			app.conflictResponse(w, r, err)
@@ -132,23 +127,18 @@ func (app *Application) followUserHandler(w http.ResponseWriter, r *http.Request
 //	@Security		ApiKeyAuth
 //	@Router			/users/{userID}/unfollow [put]
 func (app *Application) unfollowUserHandler(w http.ResponseWriter, r *http.Request) {
-	unfollowedUser := getUserFromContext(r)
-	//TODO: revert back to auth userID from ctx
-	var payload FollowUser
+	unfollower := getUserFromContext(r)
 
-	if err := readJson(w, r, &payload); err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
+	unfollowedID, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
 
-	if err := validate.Struct(payload); err != nil {
-		app.badRequestResponse(w, r, err)
+	if err != nil {
+		app.badRequestResponse(w,r,err)
 		return
 	}
 
 	ctx := r.Context()
 
-	if err := app.Store.Followers.Unfollow(ctx, unfollowedUser.ID, payload.UserID); err != nil {
+	if err := app.Store.Followers.Unfollow(ctx, unfollower.ID, unfollowedID); err != nil {
 		app.notFoundResponse(w, r, err)
 		return
 	}
