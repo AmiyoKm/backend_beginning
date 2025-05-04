@@ -13,6 +13,7 @@ import (
 	"github.com/AmiyoKm/go-backend/docs" // This is required to generate swagger docs
 	"github.com/AmiyoKm/go-backend/internal/auth"
 	"github.com/AmiyoKm/go-backend/internal/mailer"
+	ratelimiter "github.com/AmiyoKm/go-backend/internal/rateLimiter"
 	"github.com/AmiyoKm/go-backend/internal/store"
 	"github.com/AmiyoKm/go-backend/internal/store/cache"
 	"github.com/go-chi/chi/v5"
@@ -29,6 +30,7 @@ type Application struct {
 	Logger        *zap.SugaredLogger
 	Mailer        mailer.Client
 	Authenticator auth.Authenticator
+	Limiter       ratelimiter.Limiter
 }
 
 type authConfig struct {
@@ -52,7 +54,8 @@ type Config struct {
 	ApiURL      string
 	Mail        mailConfig
 	FrontendURL string
-	redisCfg    redisConfig
+	RedisCfg    redisConfig
+	RateLimiter ratelimiter.Config
 }
 
 type redisConfig struct {
@@ -95,6 +98,8 @@ func (app *Application) mount() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	r.Use(app.RateLimiterMiddleware)
 
 	r.Use(middleware.Timeout(60 * time.Second))
 
