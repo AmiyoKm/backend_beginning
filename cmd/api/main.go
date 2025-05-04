@@ -8,6 +8,8 @@ import (
 	"github.com/AmiyoKm/go-backend/internal/env"
 	"github.com/AmiyoKm/go-backend/internal/mailer"
 	"github.com/AmiyoKm/go-backend/internal/store"
+	"github.com/AmiyoKm/go-backend/internal/store/cache"
+	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
@@ -45,6 +47,12 @@ func main() {
 			apiKey: env.GetString("APP_PASSWORD", ""),
 		},
 	}
+	redisConfig := redisConfig{
+		addr:    env.GetString("REDIS_ADDR", "localhost:6379"),
+		pw:      env.GetString("REDIS_PW", ""),
+		db:      env.GetInt("REDIS_DB", 0),
+		enabled: env.GetBool("REDIS_ENABLED", false),
+	}
 
 	cfg := Config{
 		Addr:        env.GetString("ADDR", ":8080"),
@@ -64,6 +72,7 @@ func main() {
 				iss:    "SocialLink",
 			},
 		},
+		redisCfg: redisConfig,
 	}
 
 	//Database
@@ -73,8 +82,10 @@ func main() {
 	}
 
 	defer db.Close()
-
 	logger.Info("DB connection pool established")
+	var rdb *redis.Client
+
+	rdb = cache.NewRedisClient(cfg.redisCfg.addr, cfg.redisCfg.pw, cfg.redisCfg.db)
 
 	store := store.NewStorage(db)
 
@@ -89,13 +100,14 @@ func main() {
 	}
 
 	jwtAuthenticator := auth.NewJWTAuthenticator(cfg.Auth.token.secret, cfg.Auth.token.iss, cfg.Auth.token.iss)
-
+	rdbStorage := cache.NewRedisStorage(rdb)
 	app := &Application{
 		Config:        cfg,
 		Store:         store,
 		Logger:        logger,
 		Mailer:        mailtrap,
 		Authenticator: jwtAuthenticator,
+		CacheStorage:  rdbStorage,
 	}
 
 	mux := app.mount()
