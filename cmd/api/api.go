@@ -1,13 +1,19 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/AmiyoKm/go-backend/docs" // This is required to generate swagger docs
 	"github.com/AmiyoKm/go-backend/internal/auth"
 	"github.com/AmiyoKm/go-backend/internal/mailer"
+	ratelimiter "github.com/AmiyoKm/go-backend/internal/rateLimiter"
 	"github.com/AmiyoKm/go-backend/internal/store"
 	"github.com/AmiyoKm/go-backend/internal/store/cache"
 	"github.com/go-chi/chi/v5"
@@ -24,6 +30,7 @@ type Application struct {
 	Logger        *zap.SugaredLogger
 	Mailer        mailer.Client
 	Authenticator auth.Authenticator
+	Limiter       ratelimiter.Limiter
 }
 
 type authConfig struct {
@@ -47,7 +54,8 @@ type Config struct {
 	ApiURL      string
 	Mail        mailConfig
 	FrontendURL string
-	redisCfg    redisConfig
+	RedisCfg    redisConfig
+	RateLimiter ratelimiter.Config
 }
 
 type redisConfig struct {
@@ -90,6 +98,8 @@ func (app *Application) mount() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	r.Use(app.RateLimiterMiddleware)
 
 	r.Use(middleware.Timeout(60 * time.Second))
 
@@ -151,6 +161,28 @@ func (app *Application) Run(mux http.Handler) error {
 		WriteTimeout: time.Second * 30,
 		IdleTimeout:  time.Minute,
 	}
+	shutdown := make(chan error)
+	go func() {
+		quit := make(chan os.Signal, 1)
+
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		s := <-quit
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+
+		app.Logger.Infow("signal caught", "signal", s.String())
+
+		shutdown <- srv.Shutdown(ctx)
+	}()
 	app.Logger.Infow("server has started", "addr", app.Config.Addr, "env", app.Config.Env)
-	return srv.ListenAndServe()
+	err := srv.ListenAndServe()
+	if !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	err = <-shutdown
+	if err != nil {
+		return err
+	}
+	app.Logger.Infow("server has stopped", "addr", app.Config.Addr)
+	return nil
 }

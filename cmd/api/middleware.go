@@ -53,7 +53,7 @@ func (app *Application) AuthTokenMiddleware(next http.Handler) http.Handler {
 }
 
 func (app *Application) getUser(ctx context.Context, userID int64) (*store.User, error) {
-	if !app.Config.redisCfg.enabled {
+	if !app.Config.RedisCfg.enabled {
 		return app.Store.Users.GetByID(ctx, userID)
 	}
 
@@ -140,4 +140,16 @@ func (app *Application) checkRolePrecedence(ctx context.Context, user *store.Use
 		return false, err
 	}
 	return user.Role.Level >= role.Level, nil
+}
+
+func (app *Application) RateLimiterMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if app.Config.RateLimiter.Enabled {
+			if allow, retryAfter := app.Limiter.Allow(r.RemoteAddr); !allow {
+				app.rateLimitExceededResponse(w, r, retryAfter.String())
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }

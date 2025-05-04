@@ -10,7 +10,7 @@ import (
 
 func TestGetUser(t *testing.T) {
 	withRedis := Config{
-		redisCfg: redisConfig{
+		RedisCfg: redisConfig{
 			enabled: true,
 		},
 	}
@@ -77,7 +77,7 @@ func TestGetUser(t *testing.T) {
 
 	t.Run("should NOT hit the cache if it is not enabled", func(t *testing.T) {
 		withRedis := Config{
-			redisCfg: redisConfig{
+			RedisCfg: redisConfig{
 				enabled: false,
 			},
 		}

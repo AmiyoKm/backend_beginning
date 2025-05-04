@@ -7,6 +7,7 @@ import (
 	"github.com/AmiyoKm/go-backend/internal/db"
 	"github.com/AmiyoKm/go-backend/internal/env"
 	"github.com/AmiyoKm/go-backend/internal/mailer"
+	ratelimiter "github.com/AmiyoKm/go-backend/internal/rateLimiter"
 	"github.com/AmiyoKm/go-backend/internal/store"
 	"github.com/AmiyoKm/go-backend/internal/store/cache"
 	"github.com/go-redis/redis/v8"
@@ -72,7 +73,12 @@ func main() {
 				iss:    "SocialLink",
 			},
 		},
-		redisCfg: redisConfig,
+		RedisCfg: redisConfig,
+		RateLimiter: ratelimiter.Config{
+			RequestPerTimeFrame: env.GetInt("RATELIMITER_REQUEST_COUNT", 20),
+			TimeFrame:           time.Second * 5,
+			Enabled:             env.GetBool("RATE_LIMITER_ENABLED", true),
+		},
 	}
 
 	//Database
@@ -85,7 +91,7 @@ func main() {
 	logger.Info("DB connection pool established")
 	var rdb *redis.Client
 
-	rdb = cache.NewRedisClient(cfg.redisCfg.addr, cfg.redisCfg.pw, cfg.redisCfg.db)
+	rdb = cache.NewRedisClient(cfg.RedisCfg.addr, cfg.RedisCfg.pw, cfg.RedisCfg.db)
 
 	store := store.NewStorage(db)
 
@@ -101,6 +107,8 @@ func main() {
 
 	jwtAuthenticator := auth.NewJWTAuthenticator(cfg.Auth.token.secret, cfg.Auth.token.iss, cfg.Auth.token.iss)
 	rdbStorage := cache.NewRedisStorage(rdb)
+
+	rateLimiter := ratelimiter.NewFixedWindowLimiter(cfg.RateLimiter.RequestPerTimeFrame, cfg.RateLimiter.TimeFrame)
 	app := &Application{
 		Config:        cfg,
 		Store:         store,
@@ -108,6 +116,7 @@ func main() {
 		Mailer:        mailtrap,
 		Authenticator: jwtAuthenticator,
 		CacheStorage:  rdbStorage,
+		Limiter:       rateLimiter,
 	}
 
 	mux := app.mount()
