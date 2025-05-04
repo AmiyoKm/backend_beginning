@@ -40,7 +40,8 @@ func (app *Application) AuthTokenMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		ctx := r.Context()
-		user, err := app.Store.Users.GetByID(ctx, userID)
+
+		user, err := app.getUser(ctx, userID)
 		if err != nil {
 			app.unauthorizedErrorResponse(w, r, err)
 			return
@@ -49,6 +50,30 @@ func (app *Application) AuthTokenMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, userCtx, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func (app *Application) getUser(ctx context.Context, userID int64) (*store.User, error) {
+	if !app.Config.redisCfg.enabled {
+		return app.Store.Users.GetByID(ctx, userID)
+	}
+
+	user, err := app.CacheStorage.Users.Get(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if user == nil {
+		user, err = app.Store.Users.GetByID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := app.CacheStorage.Users.Set(ctx, user); err != nil {
+			return nil, err
+		}
+	}
+
+	return user, nil
 }
 
 func (app *Application) BasicAuthMiddleware() func(http.Handler) http.Handler {
@@ -99,20 +124,20 @@ func (app *Application) checkPostOwnership(requiredRole string, next http.Handle
 		//Role precedence check
 		allowed, err := app.checkRolePrecedence(r.Context(), user, requiredRole)
 		if err != nil {
-			app.internalServerErrorResponse(w,r,err)
+			app.internalServerErrorResponse(w, r, err)
 			return
 		}
 		if !allowed {
-			app.forbiddenResponse(w,r )
+			app.forbiddenResponse(w, r)
 		}
 		next.ServeHTTP(w, r)
 	})
 }
 
 func (app *Application) checkRolePrecedence(ctx context.Context, user *store.User, roleName string) (bool, error) {
-	role , err := app.Store.Roles.GetByName(ctx , roleName)
+	role, err := app.Store.Roles.GetByName(ctx, roleName)
 	if err != nil {
-		return false , err
+		return false, err
 	}
-	return user.Role.Level >= role.Level , nil
+	return user.Role.Level >= role.Level, nil
 }

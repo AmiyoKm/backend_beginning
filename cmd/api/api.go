@@ -9,6 +9,7 @@ import (
 	"github.com/AmiyoKm/go-backend/internal/auth"
 	"github.com/AmiyoKm/go-backend/internal/mailer"
 	"github.com/AmiyoKm/go-backend/internal/store"
+	"github.com/AmiyoKm/go-backend/internal/store/cache"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -19,6 +20,7 @@ import (
 type Application struct {
 	Config        Config
 	Store         store.Storage
+	CacheStorage  cache.Storage
 	Logger        *zap.SugaredLogger
 	Mailer        mailer.Client
 	Authenticator auth.Authenticator
@@ -45,6 +47,14 @@ type Config struct {
 	ApiURL      string
 	Mail        mailConfig
 	FrontendURL string
+	redisCfg    redisConfig
+}
+
+type redisConfig struct {
+	addr    string
+	pw      string
+	db      int
+	enabled bool
 }
 
 type mailConfig struct {
@@ -97,15 +107,15 @@ func (app *Application) mount() http.Handler {
 				r.Use(app.postContextMiddleware)
 				r.Get("/", app.getPostHandler)
 
-				r.Delete("/", app.checkPostOwnership("admin" , app.deletePostHandler))
-				r.Patch("/", app.checkPostOwnership("moderator" , app.updatePostHandler))
+				r.Delete("/", app.checkPostOwnership("admin", app.deletePostHandler))
+				r.Patch("/", app.checkPostOwnership("moderator", app.updatePostHandler))
 
 				r.Route("/comments", func(r chi.Router) {
 					r.Post("/", app.createCommentsHandler)
 				})
 			})
 		})
-		
+
 		r.Route("/users", func(r chi.Router) {
 			r.Put("/activate/{token}", app.activateUserHandler)
 

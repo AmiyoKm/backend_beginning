@@ -24,3 +24,9 @@ gen-docs:
 	@echo "Generating API documentation..."
 	@swag init -g ./api/main.go -d cmd,internal && swag fmt
 	@echo "API documentation generated successfully."
+
+.PHONY :  test
+test:
+	@echo "Running tests..."
+	@go test -v ./...
+	@echo "Tests completed."
