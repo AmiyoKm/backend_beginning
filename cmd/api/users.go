@@ -60,7 +60,7 @@ func (app *Application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 //	@Security		ApiKeyAuth
 //	@Router			/users/{id} [get]
 func (app *Application) getUserHandler(w http.ResponseWriter, r *http.Request) {
-		userID, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
+	userID, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -82,6 +82,7 @@ func (app *Application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 		app.internalServerErrorResponse(w, r, err)
 	}
 }
+
 type FollowUser struct {
 	UserID int64 `json:"user_id"`
 }
