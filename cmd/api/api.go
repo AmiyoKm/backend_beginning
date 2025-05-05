@@ -12,6 +12,7 @@ import (
 
 	"github.com/AmiyoKm/go-backend/docs" // This is required to generate swagger docs
 	"github.com/AmiyoKm/go-backend/internal/auth"
+	"github.com/AmiyoKm/go-backend/internal/env"
 	"github.com/AmiyoKm/go-backend/internal/mailer"
 	ratelimiter "github.com/AmiyoKm/go-backend/internal/rateLimiter"
 	"github.com/AmiyoKm/go-backend/internal/store"
@@ -83,21 +84,21 @@ type dbConfig struct {
 func (app *Application) mount() http.Handler {
 	r := chi.NewRouter()
 
+
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
 	r.Use(cors.Handler(cors.Options{
-		// AllowedOrigins:   []string{"https://foo.com"}, // Use this to allow specific origin hosts
-		AllowedOrigins: []string{"https://*", "http://*"},
-		// AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
+
+		AllowedOrigins: []string{env.GetString("CORS_ALLOWED_ORIGIN", "http://localhost:5173")},
+
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: false,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
-
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
 
 	r.Use(app.RateLimiterMiddleware)
 
