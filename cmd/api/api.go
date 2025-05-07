@@ -24,7 +24,6 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"go.uber.org/zap"
 )
-
 type Application struct {
 	Config        Config
 	Store         store.Storage
