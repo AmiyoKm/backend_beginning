@@ -6,11 +6,11 @@ migration:
 
 .PHONY : migrate-up
 migrate-up:
-	@migrate --path=${MIGRATIONS_PATH} --database="postgres://admin:adminpassword@localhost:5432/social?sslmode=disable" up
+	@migrate -path=${MIGRATIONS_PATH} -database="postgres://admin:adminpassword@localhost:5432/social?sslmode=disable" up
 
 .PHONY : migrate-down
 migrate-down:
-	@migrate --path=${MIGRATIONS_PATH} --database="postgres://admin:adminpassword@localhost:5432/social?sslmode=disable" down
+	@migrate -path=${MIGRATIONS_PATH} -database="postgres://admin:adminpassword@localhost:5432/social?sslmode=disable" down
 
 
 .PHONY : seed
