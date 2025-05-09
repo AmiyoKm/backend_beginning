@@ -10,8 +10,8 @@ import (
 var (
 	ErrorNotFound        = errors.New("resource not found")
 	ErrConflict          = errors.New("resource already exists")
-	ErrDuplicateEmail    = errors.New("Email already exists")
-	ErrDuplicateUsername = errors.New("Username already exists")
+	ErrDuplicateEmail    = errors.New("email already exists")
+	ErrDuplicateUsername = errors.New("username already exists")
 	QueryTimeoutDuration = time.Second * 5
 )
 

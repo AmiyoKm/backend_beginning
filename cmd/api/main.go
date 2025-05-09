@@ -12,7 +12,6 @@ import (
 	ratelimiter "github.com/AmiyoKm/go-backend/internal/rateLimiter"
 	"github.com/AmiyoKm/go-backend/internal/store"
 	"github.com/AmiyoKm/go-backend/internal/store/cache"
-	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
@@ -91,9 +90,8 @@ func main() {
 
 	defer db.Close()
 	logger.Info("DB connection pool established")
-	var rdb *redis.Client
 
-	rdb = cache.NewRedisClient(cfg.RedisCfg.addr, cfg.RedisCfg.pw, cfg.RedisCfg.db)
+	rdb := cache.NewRedisClient(cfg.RedisCfg.addr, cfg.RedisCfg.pw, cfg.RedisCfg.db)
 
 	store := store.NewStorage(db)
 
